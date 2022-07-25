@@ -46,6 +46,18 @@ pub mod pallet {
 		created_date: <T as pallet_timestamp::Config>::Moment,
 	}
 
+	/// Debug trait cho Struct Kitty<T>
+	impl<T: Config> fmt::Debug for Kitty<T> {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			f.debug_struct("Kitty")
+			 .field("dna", &self.dna)
+			 .field("owner", &self.owner)
+			 .field("price", &self.price)
+			 .field("gender", &self.gender)
+			 .field("created_date", &self.created_date)
+			 .finish()
+		}
+	}
 
 	/// enum Gender of Kitty
 	#[derive(TypeInfo, Encode, Decode, Debug, Clone, Copy, PartialEq)]
@@ -132,6 +144,8 @@ pub mod pallet {
 		KittyNotExist,
 		/// Errors when Kitty not exceed number
 		ExceedNumberKitty,
+		/// Errors when not owner
+		NotOwnerKitty,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -196,7 +210,7 @@ pub mod pallet {
 			<KittyNumber<T>>::put(number);
 
 			// Emit an event.
-			Self::deposit_event(Event::KittyStored(dna, who));
+			Self::deposit_event(Event::KittyCreated(dna, who));
 
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
@@ -213,26 +227,28 @@ pub mod pallet {
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
 			let who = ensure_signed(origin)?;
-
+			
+			let prev_owner = who.clone();
+			
+			// Get and check kitty is exist
+			let mut kitty_by_dna = <Kitties<T>>::get(&dna).ok_or(Error::<T>::KittyNotExist)?;
+			
 			// Verify the kitty is not transferring back to its owner.
 			ensure!(who != newOwner, <Error<T>>::TransferToSelf);
+			ensure!(kitty_by_dna.owner == who, Error::<T>::NotOwnerKitty);
 
-			let prev_owner = who.clone();
-
-			// Get and check kitty is exist
-			let kitty_by_dna = <Kitties<T>>::get(&dna);
-			ensure!(kitty_by_dna.is_none(), Error::<T>::KittyNotExist);
-			
 			// Get and check max kitty in newOwner
 			let max = T::MaxKitty::get();
 			let get_kitty = <KittyOwner<T>>::get(&newOwner).unwrap_or_default();
 			ensure!((get_kitty.len() as u32) < max, Error::<T>::ExceedNumberKitty);
 
 			// Check and Update new owner of kitty into Kitties
-			if let Some(mut kitty) = kitty_by_dna {
-				kitty.owner = newOwner.clone();
-				<Kitties<T>>::insert(&dna, kitty);
-			}
+			// if let Some(mut kitty) = kitty_by_dna {
+			// 	kitty.owner = newOwner.clone();
+			// 	<Kitties<T>>::insert(&dna, kitty);
+			// }
+			kitty_by_dna.owner = newOwner.clone();
+			<Kitties<T>>::insert(&dna, kitty_by_dna);
 
 			// Remove `kitty_dna` from the KittyOwner vector of `prev_owner'
 			<KittyOwner<T>>::mutate(&prev_owner, |dna_list| {

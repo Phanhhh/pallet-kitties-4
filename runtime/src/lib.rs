@@ -46,6 +46,9 @@ pub use sp_runtime::{Perbill, Permill};
 /// Import the template pallet.
 pub use pallet_template;
 
+/// Import the demo pallet.
+pub use pallet_demo;
+
 /// Import the kitties pallet.
 pub use pallet_kitties;
 
@@ -269,6 +272,11 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+/// Configure the pallet-demo in pallets/demo.
+impl pallet_demo::Config for Runtime {
+	type Event = Event;
+}
+
 /// pub constant kitty
 parameter_types! {
 	pub const MaxKitty:u32 = 5;
@@ -299,6 +307,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		// Include the custom logic from the pallet-template in the runtime.
+		Demo: pallet_demo,
 		// Include the custom logic from the pallet-kitties in the runtime.
 		Kitties: pallet_kitties,
 	}

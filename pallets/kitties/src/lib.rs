@@ -105,7 +105,7 @@ pub mod pallet {
 	//key : dna
 	//value : struct Kitty
 	#[pallet::storage]
-	#[pallet::getter(fn Kitties)]
+	#[pallet::getter(fn kitties)]
 	pub(super) type Kitties<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::Hash, Kitty<T>, OptionQuery>;
 
@@ -113,7 +113,7 @@ pub mod pallet {
 	//key : T:: AccountId
 	//value : vec<dna>
 	#[pallet::storage]
-	#[pallet::getter(fn KittyOwner)]
+	#[pallet::getter(fn kitties_owned)]
 	pub(super) type KittyOwner<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::Hash, T::MaxKitty>, OptionQuery>;
 
@@ -154,7 +154,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		// Function create kitty by user.
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(89_900_000 + T::DbWeight::get().reads_writes(5, 3))]
 		pub fn create_kitty(origin: OriginFor<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
@@ -167,7 +167,8 @@ pub mod pallet {
 			// let temp_dna = dna.clone();
 
 			// Generate Gender for kitty
-			let gender = Self::gen_gender(dna.clone());
+			let gender = Self::gen_gender(dna.clone()); /// for type T::Hash
+			// let gender = Self::gen_gender(dna.clone())?;
 
 			// Create date use tightly coupling
 			let now = pallet_timestamp::Pallet::<T>::now();
@@ -217,7 +218,7 @@ pub mod pallet {
 		}
 
 		// Function transfer owner of kitty
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(43_900_000 + T::DbWeight::get().reads_writes(3, 3))]
 		pub fn transfer_owner_kitty(
 			origin: OriginFor<T>,
 			dna: T::Hash,

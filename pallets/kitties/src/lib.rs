@@ -39,11 +39,11 @@ pub mod pallet {
 	#[derive(TypeInfo, Default, Encode, Decode)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Kitty<T: Config> {
-		dna: T::Hash,
-		owner: T::AccountId,
-		price: BalanceOf<T>,
-		gender: Gender,
-		created_date: <T as pallet_timestamp::Config>::Moment,
+		pub dna: T::Hash,
+		pub owner: T::AccountId,
+		pub price: BalanceOf<T>,
+		pub gender: Gender,
+		pub created_date: <T as pallet_timestamp::Config>::Moment,
 	}
 
 	/// Debug trait cho Struct Kitty<T>
@@ -137,7 +137,7 @@ pub mod pallet {
 		/// Errors duplicate
 		DuplicateKitty,
 		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
+		KittyOverflow,
 		/// Errors when transfer to yourself
 		TransferToSelf,
 		/// Errors when Kitty not exist
@@ -148,6 +148,31 @@ pub mod pallet {
 		NotOwnerKitty,
 	}
 
+	// Genesis config
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T:Config> {
+		pub genesis_value_kitty: Vec<(T::AccountId, BalanceOf<T>, Option<T::Hash>)>
+	}
+	
+	#[cfg(feature="std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self {
+				genesis_value_kitty: Vec::new()
+			}
+		}
+	}
+	
+	#[pallet::genesis_build]
+	impl<T:Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			for (accountID, price, dna) in &self.genesis_value_kitty {
+				<Pallet<T>>::mint(accountID, *price, dna.clone()).unwrap();
+			}
+		}
+	}
+	
+
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -155,61 +180,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		// Function create kitty by user.
 		#[pallet::weight(89_900_000 + T::DbWeight::get().reads_writes(5, 3))]
-		pub fn create_kitty(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create_kitty(origin: OriginFor<T>, price: BalanceOf<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
 			let who = ensure_signed(origin)?;
 			
-			let dna = Self::gen_dna();
-
-			// let dna_for_gender = dna.clone().to_vec();
-			// let temp_dna = dna.clone();
-
-			// Generate Gender for kitty
-			let gender = Self::gen_gender(dna.clone()); /// for type T::Hash
-			// let gender = Self::gen_gender(dna.clone())?;
-
-			// Create date use tightly coupling
-			let now = pallet_timestamp::Pallet::<T>::now();
-
-			// Create kitty
-			let kitty = Kitty { 
-				dna: dna.clone(), 
-				price: 0u32.into(), 
-				gender: gender, 
-				owner: who.clone() ,
-				created_date: now,
-			};
-
-			// Get max kitty
-			let max = T::MaxKitty::get();
-
-			// Check duplicate kitty
-			ensure!(!Kitties::<T>::contains_key(&kitty.dna), Error::<T>::DuplicateKitty);
-
-			// Insert kitty into Kitties (StorageMap)
-			<Kitties<T>>::insert(&dna, kitty);
-
-			// Insert kitty into KittyOwner (StorageMap)
-			let get_kitty = <KittyOwner<T>>::get(&who).unwrap_or_default();
-
-			ensure!((get_kitty.len() as u32) < max, Error::<T>::ExceedNumberKitty);
-
-			KittyOwner::<T>::try_append(&who, dna.clone()).map_err(|_| <Error<T>>::KittyNotExist)?;
-			// let mut kitty_vec_check = match kitty_vec {
-			// 	None => Vec::new(),
-			// 	_ => <KittyOwner<T>>::get(&who).unwrap(),
-			// };
-
-			// get_kitty.push(dna.clone());
-			// <KittyOwner<T>>::insert(who.clone(), get_kitty);
-
-			// Update number of kitty into KittyNumber (StorageValue)
-			let mut number = <KittyNumber<T>>::get();
-			number += 1;
-			<KittyNumber<T>>::put(number);
-
+			let dna = Self::mint(&who, price, None)?;
 			// Emit an event.
 			Self::deposit_event(Event::KittyCreated(dna, who));
 
@@ -299,5 +276,33 @@ impl<T: Config> Pallet<T> {
 		);
 		let kitty_dna_random = T::Hashing::hash_of(&random_gen_dna);
 		kitty_dna_random
+	}
+
+	pub fn mint(owner: &T::AccountId, price: BalanceOf<T>, dna: Option<T::Hash>) -> Result<T::Hash, Error<T>> {
+		let dnaValue = dna.unwrap_or_else(|| Self::gen_dna());
+		
+		let now = pallet_timestamp::Pallet::<T>::now();
+
+		let kitty = Kitty::<T> {
+			dna: dnaValue.clone(),
+			gender: Self::gen_gender(dnaValue.clone()),
+			owner: owner.clone(),
+			price: price,
+			created_date: now,
+		};
+
+		log::info!("A kitty is born: {:?}", kitty);
+		log::warn!("A kitty is born: {:?}", kitty);
+		log::error!("A kitty is born: {:?}", kitty);
+
+		let new_count = Self::kitty_number().checked_add(1).ok_or(<Error<T>>::KittyOverflow)?;
+
+		<KittyOwner<T>>::try_append(&owner, dnaValue.clone()).map_err(|_| <Error<T>>::KittyNotExist)?;
+
+		<Kitties<T>>::insert(dnaValue.clone(), kitty);
+
+		<KittyNumber<T>>::put(new_count);
+
+		Ok(dnaValue.clone())
 	}
 }

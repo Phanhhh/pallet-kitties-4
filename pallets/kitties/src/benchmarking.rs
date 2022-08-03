@@ -17,7 +17,8 @@ benchmarks! {
 		// let dnas : Vec<u8> = b"uocgimotngaymaitoicoduoccongviecveblockchainvakiemduocnhieutienvasaudotoisegiupdogiadinhtoiroifsaudotoisegiupdonhieunguoikhacoquecuatoivanhieufnguoikhactrendatnuocvietnamnaykecatrenholannguoilontuoidoladieuuocmocuartoiniemaouoclonnhatvaduynhatcuatoivatoitintoiselamduocCamonmoinguoicamontatcanhungnguoidadenvagiupdotoicamonratnhieu".to_vec();
 
 		let caller: T::AccountId = whitelisted_caller();
-	}: create_kitty (RawOrigin::Signed(caller))
+		let price = 0u32.into();
+	}: create_kitty (RawOrigin::Signed(caller), price)
 
 	// kiểm tra lại trạng thái storage khi thực hiện extrinsic xem đúng chưa
 	verify {
@@ -32,7 +33,9 @@ benchmarks! {
 
 		let caller_origin = <T as frame_system::Config>::Origin::from(RawOrigin::Signed(caller.clone()));
 
-		Kitties::<T>::create_kitty(caller_origin);
+		let price = 0u32.into();
+
+		Kitties::<T>::create_kitty(caller_origin, price);
 		
 		let receiver: T::AccountId = account("receiver", 0, 0);
 
